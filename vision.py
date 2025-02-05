@@ -27,7 +27,7 @@ class Vision:
         # TM_CCOEFF, TM_CCOEFF_NORMED, TM_CCORR, TM_CCORR_NORMED, TM_SQDIFF, TM_SQDIFF_NORMED
         self.method = method
 
-    def find(self, haystack_img, threshold=0.5, max_results=10):
+    def find(self, haystack_img, threshold=0.5, max_results=10, offset_x=0, offset_y=0):
         # run the OpenCV algorithm
         result = cv.matchTemplate(haystack_img, self.needle_img, self.method)
 
@@ -46,7 +46,7 @@ class Vision:
         # First we need to create the list of [x, y, w, h] rectangles
         rectangles = []
         for loc in locations:
-            rect = [int(loc[0]), int(loc[1]), self.needle_w, self.needle_h]
+            rect = [int(loc[0]) + offset_x, int(loc[1]) + offset_y, self.needle_w, self.needle_h]
             # Add every box to the list twice in order to retain single (non-overlapping) boxes
             rectangles.append(rect)
             rectangles.append(rect)
@@ -60,9 +60,9 @@ class Vision:
 
         # for performance reasons, return a limited number of results.
         # these aren't necessarily the best results.
-        if len(rectangles) > max_results:
-            print('Warning: too many results, raise the threshold.')
-            rectangles = rectangles[:max_results]
+        #if len(rectangles) > max_results:
+            #print('Warning: too many results, raise the threshold.')
+            #rectangles = rectangles[:max_results]
 
         return rectangles
 

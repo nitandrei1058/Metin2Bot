@@ -1,25 +1,32 @@
 import cv2 as cv
 import numpy as np
 import os
-from time import time
+from time import time, sleep
 from windowcapture import WindowCapture
 from vision import Vision
-from hsvfilter import HsvFilter
+from pynput.mouse import Button, Controller
+import random
+mouse = Controller()
 
-# Change the working directory to the folder this script is in.
-# Doing this because I'll be putting the files from each video in their own folder on GitHub
+import ctypes
+
+import pytest
+from PySide6.QtWidgets import QApplication
+
+with pytest.MonkeyPatch.context() as mp:
+    mp.setattr(ctypes.windll.user32, "SetProcessDPIAware", lambda: None)
+    import pyautogui  # noqa # pylint:disable=unused-import
+    import pydirectinput
+
+QApplication()
+
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
 # initialize the WindowCapture class
 wincap = WindowCapture('METIN2')
 # initialize the Vision class
-vision_pumnal = Vision('pumnal_hsv2.jpg')
-# initialize the trackbar window
-vision_pumnal.init_control_gui()
-
-# limestone HSV filter
-hsv_filter = HsvFilter(18, 143, 190, 115, 255, 255, 147, 0, 0, 0)
+vision_pumnal = Vision('pumnal.jpg')
+vision_loc_gol = Vision('loc_gol.jpg')
 
 loop_time = time()
 while(True):
@@ -27,18 +34,42 @@ while(True):
     # get an updated image of the game
     screenshot = wincap.get_screenshot()
 
-    # pre-process the image
-    processed_image = vision_pumnal.apply_hsv_filter(screenshot, hsv_filter)
+    # look for pumnal
+    height, width, _ = screenshot.shape  # Get the image dimensions
 
-    # do object detection
-    rectangles = vision_pumnal.find(processed_image, 0.5)
+    # Define cropping boundaries
+    crop_x_start = (width // 2) + (width // 4)  # Start of the rightmost quarter
+    crop_x_end = width  # End of the rightmost quarter
+    crop_y_start = 0
+    crop_y_end = height // 2  # Top half
 
-    # draw the detection results onto the original image
-    output_image = vision_pumnal.draw_rectangles(screenshot, rectangles)
+    # Crop the image
+    cropped_img = screenshot[crop_y_start:crop_y_end, crop_x_start:crop_x_end]
 
-    # display the processed image
-    cv.imshow('Processed', processed_image)
+    # Find objects in the cropped image
+    rectangles_translated = vision_pumnal.find(cropped_img, 0.6, offset_x=crop_x_start, offset_y=crop_y_start)
+
+    # look for loc gol
+
+    rectangles_loc_gol = vision_loc_gol.find(screenshot, 0.6)
+
+    # Draw the translated rectangles on the original screenshot
+    
+    output_image = vision_pumnal.draw_rectangles(screenshot, rectangles_translated)
+    output_image = vision_loc_gol.draw_rectangles(output_image, rectangles_loc_gol)
+
     cv.imshow('Matches', output_image)
+
+    if len(rectangles_loc_gol) == 0:
+        break
+
+    rand = random.randint(150, 2000)
+    if len(rectangles_translated) > 0:
+        targets = vision_pumnal.get_click_points(rectangles_translated)
+        target = wincap.get_screen_position(targets[0])
+        pyautogui.moveTo(target[0], target[1])
+        pyautogui.rightClick()
+        sleep(rand / 1000)
 
     # debug the loop rate
     print('FPS {}'.format(1 / (time() - loop_time)))
