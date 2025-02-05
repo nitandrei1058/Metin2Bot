@@ -72,7 +72,8 @@ def findClickPositions(needle_img_path, haystack_img_path, threshold=0.8, debug_
                               markerSize=40, thickness=2)
 
         if debug_mode:
-            cv.imshow('Matches', haystack_img)
+            image_to_show = cv.resize(haystack_img, (960, 540))
+            cv.imshow('Matches', image_to_show)
             cv.waitKey()
             #cv.imwrite('result_click_point.jpg', haystack_img)
 
